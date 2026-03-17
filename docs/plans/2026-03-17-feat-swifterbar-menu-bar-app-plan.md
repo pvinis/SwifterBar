@@ -324,12 +324,12 @@ Use `DispatchSource.makeTimerSource` with a `leeway` parameter (1 second) to let
 
 Core plugin execution with menu bar display. **This is the only phase that matters for launch.**
 
-- [ ] **SwifterBarApp.swift** — Entry point, `@Observable` AppState, `LSUIElement` for menu-bar-only, `NSApplicationDelegateAdaptor` for AppKit lifecycle
-- [ ] **Plugin.swift** — `Plugin` struct with `PluginKind` enum (`.executable(interval:)`, `.streamable`), `PluginState` enum (`.idle`, `.running`, `.error`), `PluginError` enum
-- [ ] **PluginManager.swift** — Scan plugin directory, discover plugins by filename pattern (`name.5s.sh`), `DispatchSource` directory watching with 500ms debounce, plugin lifecycle (start/stop/refresh), guard against concurrent execution of same plugin
-- [ ] **ScriptRunner.swift** — `swift-subprocess` wrapper, shell environment resolution (cached at startup), timeout via TaskGroup, `@concurrent` execution, teardown sequence (SIGTERM → SIGKILL)
-- [ ] **OutputParser.swift** — Parse header/body/`---` separators/parameters into `[ParsedMenuItem]`, input validation (max line length, max lines, null byte rejection)
-- [ ] **MenuBarManager.swift** — Create `NSStatusItem` per plugin (with `autosaveName`), build `NSMenu` from `[ParsedMenuItem]`, handle basic parameters (`color=`, `href=`, `bash=`, `refresh=true`, `sfimage=`), right-click context menu (Open Plugin Folder, Refresh All, Quit), strong reference dictionary keyed by plugin ID, `alwaysVisible` support
+- [x] **SwifterBarApp.swift** — Entry point, `@Observable` AppState, `LSUIElement` for menu-bar-only, `NSApplicationDelegateAdaptor` for AppKit lifecycle
+- [x] **Plugin.swift** — `Plugin` struct with `PluginKind` enum (`.executable(interval:)`, `.streamable`), `PluginState` enum (`.idle`, `.running`, `.error`), `PluginError` enum
+- [x] **PluginManager.swift** — Scan plugin directory, discover plugins by filename pattern (`name.5s.sh`), `DispatchSource` directory watching with 500ms debounce, plugin lifecycle (start/stop/refresh), guard against concurrent execution of same plugin
+- [x] **ScriptRunner.swift** — `swift-subprocess` wrapper, shell environment resolution (cached at startup), timeout via TaskGroup, `@concurrent` execution, teardown sequence (SIGTERM → SIGKILL)
+- [x] **OutputParser.swift** — Parse header/body/`---` separators/parameters into `[ParsedMenuItem]`, input validation (max line length, max lines, null byte rejection)
+- [x] **MenuBarManager.swift** — Create `NSStatusItem` per plugin (with `autosaveName`), build `NSMenu` from `[ParsedMenuItem]`, handle basic parameters (`color=`, `href=`, `bash=`, `refresh=true`, `sfimage=`), right-click context menu (Open Plugin Folder, Refresh All, Quit), strong reference dictionary keyed by plugin ID, `alwaysVisible` support
 **Acceptance criteria**: Can place a script in `~/SwifterBar/`, see its output in menu bar, auto-refresh on interval, basic styling works. Right-click any plugin's menu bar item → Open Plugin Folder, Refresh All, Quit.
 
 Security validations are distributed: PluginManager validates directory/file permissions, ScriptRunner sanitizes arguments and enforces timeouts, OutputParser enforces size limits and strips null bytes, MenuBarManager validates URLs and image sizes.
