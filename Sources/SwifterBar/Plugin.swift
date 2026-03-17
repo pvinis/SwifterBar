@@ -1,0 +1,111 @@
+import Foundation
+
+// MARK: - Plugin
+
+nonisolated struct Plugin: Identifiable, Sendable {
+    let id: String
+    let name: String
+    let path: URL
+    let kind: PluginKind
+    var state: PluginState = .idle
+    var lastOutput: [ParsedMenuItem] = []
+    var error: PluginError?
+    var isRunning: Bool = false
+}
+
+// MARK: - PluginKind
+
+nonisolated enum PluginKind: Sendable {
+    case executable(interval: Duration)
+    case streamable
+}
+
+// MARK: - PluginState
+
+nonisolated enum PluginState: Sendable {
+    case idle
+    case running
+    case error
+}
+
+// MARK: - PluginError
+
+nonisolated enum PluginError: Error, Sendable {
+    case executionFailed(exitCode: Int32)
+    case timeout
+    case notExecutable
+    case invalidOwner
+    case outputTooLarge
+    case spawnFailed(String)
+}
+
+// MARK: - ParsedMenuItem
+
+nonisolated struct ParsedMenuItem: Equatable, Sendable {
+    var text: String
+    var params: MenuItemParams
+    var isHeader: Bool = false
+    var isSeparator: Bool = false
+}
+
+// MARK: - MenuItemParams
+
+nonisolated struct MenuItemParams: Equatable, Sendable {
+    var color: String?
+    var colorDark: String?
+    var sfimage: String?
+    var href: String?
+    var bash: String?
+    var bashParams: [String] = []
+    var refresh: Bool = false
+    var terminal: Bool = false
+    var font: String?
+    var size: CGFloat?
+    var image: String?           // base64
+    var templateImage: String?   // base64 template
+    var alwaysVisible: Bool = false
+
+    static let empty = MenuItemParams()
+}
+
+// MARK: - Filename Parsing
+
+extension Plugin {
+    /// Parse a plugin filename like "weather.5s.sh" into (name, interval, extension).
+    /// Returns nil if the filename doesn't match the expected pattern.
+    nonisolated static func parseFilename(_ filename: String) -> (name: String, interval: Duration, ext: String)? {
+        let parts = filename.split(separator: ".", maxSplits: .max, omittingEmptySubsequences: false)
+        guard parts.count >= 3 else { return nil }
+
+        let name = String(parts[0])
+        let ext = String(parts.last!)
+        let intervalStr = String(parts[parts.count - 2])
+
+        guard let interval = parseInterval(intervalStr) else { return nil }
+
+        // Clamp interval: min 5s, max 24h
+        let clamped = max(.seconds(5), min(interval, .seconds(86400)))
+        return (name, clamped, ext)
+    }
+
+    /// Parse interval string like "5s", "1m", "2h", "1d", "500ms"
+    nonisolated private static func parseInterval(_ str: String) -> Duration? {
+        if str.hasSuffix("ms") {
+            guard let val = Int(str.dropLast(2)), val > 0 else { return nil }
+            return .milliseconds(val)
+        } else if str.hasSuffix("s") {
+            guard let val = Int(str.dropLast(1)), val > 0 else { return nil }
+            return .seconds(val)
+        } else if str.hasSuffix("m") {
+            guard let val = Int(str.dropLast(1)), val > 0 else { return nil }
+            return .seconds(val * 60)
+        } else if str.hasSuffix("h") {
+            guard let val = Int(str.dropLast(1)), val > 0 else { return nil }
+            return .seconds(val * 3600)
+        } else if str.hasSuffix("d") {
+            guard let val = Int(str.dropLast(1)), val > 0 else { return nil }
+            return .seconds(val * 86400)
+        }
+        return nil
+    }
+}
