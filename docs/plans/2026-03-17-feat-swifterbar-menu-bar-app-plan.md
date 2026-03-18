@@ -340,14 +340,14 @@ Security validations are distributed: PluginManager validates directory/file per
 
 **Only after Phase 1 ships and you have real-world feedback.**
 
-- [ ] **StreamablePlugin** — Long-running process with `~~~` separators, async output via `swift-subprocess` streaming, max 64KB per output block, rate limiting
-- [ ] **Full styling** — `font=`, `size=`, `image=` (base64 with size validation), `templateImage=`, dark/light alternate colors
-- [ ] **Nested menu items** — Indentation-based submenu hierarchy
-- [ ] **Plugin metadata** — Parse `<swiftbar.*>` tags from script comments (first 8KB only)
-- [ ] **Plugin environment** — Minimal `SWIFTERBAR_*` env vars (not full shell inheritance)
-- [ ] **Disabled state fix** — Respect `color=` on non-actionable items (use no-op action)
-- [ ] **Launch at login** — `ServiceManagement` framework
-- [ ] **SettingsView.swift** — SwiftUI Settings scene with hidden Window workaround, plugin folder picker, enable/disable toggles, tabbed Form
+- [x] **StreamablePlugin** — Long-running process with `~~~` separators, async output via `swift-subprocess` streaming, max 64KB per output block, rate limiting
+- [x] **Full styling** — `font=`, `size=`, `image=` (base64 with size validation), `templateImage=`, dark/light alternate colors
+- [x] **Nested menu items** — Indentation-based submenu hierarchy
+- [x] **Plugin metadata** — Parse `<swiftbar.*>` tags from script comments (first 8KB only)
+- [x] **Plugin environment** — Minimal `SWIFTERBAR_*` env vars (not full shell inheritance)
+- [x] **Disabled state fix** — Respect `color=` on non-actionable items (use no-op action)
+- [x] **Launch at login** — `ServiceManagement` framework
+- [x] **SettingsView.swift** — SwiftUI Settings scene with hidden Window workaround, plugin folder picker, enable/disable toggles, tabbed Form
 
 **Acceptance criteria**: Existing SwiftBar plugins (that use supported features) work without modification. Settings window opens from right-click menu.
 
