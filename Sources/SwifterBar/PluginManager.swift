@@ -5,6 +5,8 @@ import Foundation
 @Observable
 final class PluginManager {
     var plugins: [String: Plugin] = [:]
+    var pluginOrder: [String] = []  // persisted ordering of plugin IDs
+    var isPaused: Bool = false
 
     let scriptRunner = ScriptRunner()
     let pluginDirectory: URL
@@ -14,7 +16,23 @@ final class PluginManager {
 
     init(directory: URL) {
         self.pluginDirectory = directory
+        self.pluginOrder = UserDefaults.standard.stringArray(forKey: "SwifterBar.pluginOrder") ?? []
         ensureDirectoryExists()
+    }
+
+    func savePluginOrder() {
+        UserDefaults.standard.set(pluginOrder, forKey: "SwifterBar.pluginOrder")
+    }
+
+    /// Get plugins sorted by persisted order.
+    var orderedPlugins: [Plugin] {
+        let all = Array(plugins.values)
+        return all.sorted { a, b in
+            let ai = pluginOrder.firstIndex(of: a.id) ?? Int.max
+            let bi = pluginOrder.firstIndex(of: b.id) ?? Int.max
+            if ai == bi { return a.name < b.name }
+            return ai < bi
+        }
     }
 
     // Note: stopAll() should be called explicitly before deallocation
@@ -46,15 +64,33 @@ final class PluginManager {
         }
     }
 
+    func pause() {
+        isPaused = true
+        for (_, task) in refreshTasks {
+            task.cancel()
+        }
+        refreshTasks.removeAll()
+    }
+
+    func resume() {
+        isPaused = false
+        for id in plugins.keys {
+            startPlugin(id: id)
+        }
+    }
+
     func refreshPlugin(id: String, reason: String) {
+        guard !isPaused else { return }
         guard var plugin = plugins[id], !plugin.isRunning else { return }
 
         plugin.isRunning = true
         plugins[id] = plugin
 
         Task {
+            let startTime = ContinuousClock.now
             do {
                 let output = try await scriptRunner.execute(plugin: plugin, reason: reason)
+                let duration = ContinuousClock.now - startTime
                 let items = OutputParser.parse(output)
 
                 if var p = plugins[id] {
@@ -62,6 +98,9 @@ final class PluginManager {
                     p.state = .idle
                     p.error = nil
                     p.isRunning = false
+                    var metrics = p.metrics ?? PluginMetrics()
+                    metrics.recordRun(duration: duration.seconds)
+                    p.metrics = metrics
                     plugins[id] = p
                 }
             } catch {
@@ -176,6 +215,11 @@ final class PluginManager {
                 )
                 plugin.metadata = metadata
                 plugins[id] = plugin
+
+                // Add to order if not already present
+                if !pluginOrder.contains(id) {
+                    pluginOrder.append(id)
+                }
             }
         }
 
@@ -184,7 +228,9 @@ final class PluginManager {
         for id in staleIds {
             stopPlugin(id: id)
             plugins.removeValue(forKey: id)
+            pluginOrder.removeAll { $0 == id }
         }
+        savePluginOrder()
     }
 
     // MARK: - Directory Watching

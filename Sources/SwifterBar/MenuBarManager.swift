@@ -202,8 +202,16 @@ final class MenuBarManager {
         return menu
     }
 
-    /// Append launch-at-login toggle and quit to a menu.
+    /// Append shared menu items (pause, launch-at-login, settings, quit).
     private func appendSharedMenuItems(to menu: NSMenu) {
+        let pauseItem = NSMenuItem(
+            title: pluginManager.isPaused ? "Resume All" : "Pause All",
+            action: #selector(togglePause),
+            keyEquivalent: ""
+        )
+        pauseItem.target = self
+        menu.addItem(pauseItem)
+
         let launchAtLogin = NSMenuItem(
             title: "Launch at Login",
             action: #selector(toggleLaunchAtLogin(_:)),
@@ -390,6 +398,14 @@ final class MenuBarManager {
 
     @objc private func refreshAllClicked() {
         pluginManager.refreshAll()
+    }
+
+    @objc private func togglePause() {
+        if pluginManager.isPaused {
+            pluginManager.resume()
+        } else {
+            pluginManager.pause()
+        }
     }
 
     @objc private func openSettingsClicked() {

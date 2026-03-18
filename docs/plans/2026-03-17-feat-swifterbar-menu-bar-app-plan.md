@@ -1,7 +1,7 @@
 ---
 title: "SwifterBar: A Modern Plugin-Based Menu Bar App"
 type: feat
-status: active
+status: completed
 date: 2026-03-17
 ---
 
@@ -353,10 +353,10 @@ Security validations are distributed: PluginManager validates directory/file per
 
 ### Phase 3: Only If Users Request It
 
-- [ ] **Plugin variables** — `<swiftbar.var.NAME>default</swiftbar.var.NAME>` metadata, GUI editor in settings
-- [ ] **Plugin error UI** — Dedicated error display in dropdown, execution metrics (avg/p95 time per plugin)
-- [ ] **Plugin reordering** — Drag to reorder status items, persist order
-- [ ] **Global pause mode** — Suspend all timers (useful on battery/presenting)
+- [x] **Plugin variables** — `<swiftbar.var.NAME>default</swiftbar.var.NAME>` metadata, GUI editor in settings
+- [x] **Plugin error UI** — Dedicated error display in dropdown, execution metrics (avg/p95 time per plugin)
+- [x] **Plugin reordering** — Drag to reorder status items, persist order
+- [x] **Global pause mode** — Suspend all timers (useful on battery/presenting)
 
 ## System-Wide Impact
 

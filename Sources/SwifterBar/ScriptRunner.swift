@@ -146,6 +146,12 @@ final class ScriptRunner: Sendable {
         let isDark = UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark"
         overrides["SWIFTERBAR_OS_APPEARANCE"] = isDark ? "Dark" : "Light"
 
+        // Plugin variables — pass as VAR_NAME env vars
+        for variable in plugin.metadata.variables {
+            let envKey: Environment.Key = .init(stringLiteral: "VAR_\(variable.name.uppercased())")
+            overrides[envKey] = variable.currentValue(pluginId: plugin.id)
+        }
+
         return .inherit.updating(overrides)
     }
 

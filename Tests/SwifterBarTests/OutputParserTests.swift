@@ -221,6 +221,76 @@ struct MetadataTests {
         #expect(meta.title == nil)
         #expect(meta.isStreamable == false)
     }
+
+    @Test func parsesPluginVariables() {
+        let content = """
+        #!/bin/bash
+        # <swiftbar.title>Weather</swiftbar.title>
+        # <swiftbar.var.CITY>London</swiftbar.var.CITY>
+        # <swiftbar.var.UNITS>metric</swiftbar.var.UNITS>
+        echo "test"
+        """
+        let tempURL = FileManager.default.temporaryDirectory.appending(path: "test_vars_\(UUID()).sh")
+        try! content.write(to: tempURL, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+
+        let meta = PluginMetadata.parse(from: tempURL)
+        #expect(meta.title == "Weather")
+        #expect(meta.variables.count == 2)
+        #expect(meta.variables[0].name == "CITY")
+        #expect(meta.variables[0].defaultValue == "London")
+        #expect(meta.variables[1].name == "UNITS")
+        #expect(meta.variables[1].defaultValue == "metric")
+    }
+}
+
+@Suite("Plugin Variables")
+struct PluginVariableTests {
+
+    @Test func defaultValueReturnsWhenNoOverride() {
+        let v = PluginVariable(name: "TEST_VAR", defaultValue: "hello")
+        let key = v.storageKey(pluginId: "test.5s.sh")
+        // Clean up any previous test data
+        UserDefaults.standard.removeObject(forKey: key)
+
+        #expect(v.currentValue(pluginId: "test.5s.sh") == "hello")
+    }
+
+    @Test func setValueOverridesDefault() {
+        let v = PluginVariable(name: "TEST_SET", defaultValue: "default")
+        let pluginId = "test_set.5s.sh"
+        let key = v.storageKey(pluginId: pluginId)
+        defer { UserDefaults.standard.removeObject(forKey: key) }
+
+        v.setValue("custom", pluginId: pluginId)
+        #expect(v.currentValue(pluginId: pluginId) == "custom")
+    }
+
+    @Test func setValueToDefaultRemovesOverride() {
+        let v = PluginVariable(name: "TEST_RESET", defaultValue: "original")
+        let pluginId = "test_reset.5s.sh"
+        let key = v.storageKey(pluginId: pluginId)
+        defer { UserDefaults.standard.removeObject(forKey: key) }
+
+        v.setValue("changed", pluginId: pluginId)
+        v.setValue("original", pluginId: pluginId)
+        #expect(UserDefaults.standard.string(forKey: key) == nil)
+        #expect(v.currentValue(pluginId: pluginId) == "original")
+    }
+}
+
+@Suite("Plugin Metrics")
+struct PluginMetricsTests {
+
+    @Test func recordsRunDuration() {
+        var metrics = PluginMetrics()
+        metrics.recordRun(duration: 0.1)
+        metrics.recordRun(duration: 0.3)
+
+        #expect(metrics.runCount == 2)
+        #expect(metrics.lastDuration == 0.3)
+        #expect(metrics.averageDuration == 0.2)
+    }
 }
 
 @Suite("Plugin Filename Parsing")

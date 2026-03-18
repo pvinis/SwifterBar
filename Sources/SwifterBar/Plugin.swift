@@ -12,6 +12,25 @@ nonisolated struct Plugin: Identifiable, Sendable {
     var lastOutput: [ParsedMenuItem] = []
     var error: PluginError?
     var isRunning: Bool = false
+    var metrics: PluginMetrics?
+}
+
+// MARK: - PluginMetrics
+
+nonisolated struct PluginMetrics: Sendable {
+    var lastDuration: Double = 0     // seconds
+    var totalDuration: Double = 0
+    var runCount: Int = 0
+
+    var averageDuration: Double {
+        runCount > 0 ? totalDuration / Double(runCount) : 0
+    }
+
+    mutating func recordRun(duration: Double) {
+        lastDuration = duration
+        totalDuration += duration
+        runCount += 1
+    }
 }
 
 // MARK: - PluginMetadata
@@ -27,6 +46,9 @@ nonisolated struct PluginMetadata: Sendable {
     var hideLastUpdated: Bool = false
     var hideDisablePlugin: Bool = false
     var alwaysVisible: Bool = false
+
+    /// Plugin variables: name → default value
+    var variables: [PluginVariable] = []
 
     var isStreamable: Bool { type?.lowercased() == "streamable" }
 
@@ -46,6 +68,12 @@ nonisolated struct PluginMetadata: Sendable {
             let key = String(match.1)
             let value = String(match.2).trimmingCharacters(in: .whitespaces)
 
+            if key.hasPrefix("var.") {
+                let varName = String(key.dropFirst(4))
+                meta.variables.append(PluginVariable(name: varName, defaultValue: value))
+                continue
+            }
+
             switch key {
             case "title": meta.title = value
             case "author": meta.author = value
@@ -62,6 +90,42 @@ nonisolated struct PluginMetadata: Sendable {
         }
 
         return meta
+    }
+}
+
+// MARK: - PluginVariable
+
+nonisolated struct PluginVariable: Sendable, Identifiable {
+    var id: String { name }
+    let name: String
+    let defaultValue: String
+
+    /// UserDefaults key for storing the user's value
+    func storageKey(pluginId: String) -> String {
+        "SwifterBar.var.\(pluginId).\(name)"
+    }
+
+    /// Get the current value (user override or default)
+    func currentValue(pluginId: String) -> String {
+        UserDefaults.standard.string(forKey: storageKey(pluginId: pluginId)) ?? defaultValue
+    }
+
+    /// Set the user's value
+    func setValue(_ value: String, pluginId: String) {
+        if value == defaultValue {
+            UserDefaults.standard.removeObject(forKey: storageKey(pluginId: pluginId))
+        } else {
+            UserDefaults.standard.set(value, forKey: storageKey(pluginId: pluginId))
+        }
+    }
+}
+
+// MARK: - Duration Extension
+
+extension Swift.Duration {
+    var seconds: Double {
+        let comps = self.components
+        return Double(comps.seconds) + Double(comps.attoseconds) / 1e18
     }
 }
 
