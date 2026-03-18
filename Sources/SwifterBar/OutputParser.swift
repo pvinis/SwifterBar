@@ -40,9 +40,20 @@ nonisolated enum OutputParser {
                 continue
             }
 
-            let parsed = parseLine(truncated)
+            // Detect submenu depth: lines starting with "--" pairs
+            var depth = 0
+            var textLine = truncated
+            if inBody {
+                while textLine.hasPrefix("--") {
+                    depth += 1
+                    textLine = String(textLine.dropFirst(2))
+                }
+            }
+
+            let parsed = parseLine(textLine)
             var item = parsed
             item.isHeader = !inBody
+            item.depth = depth
             items.append(item)
         }
 

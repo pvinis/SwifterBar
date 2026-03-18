@@ -68,6 +68,61 @@ final class ScriptRunner: Sendable {
         )
     }
 
+    /// Execute a streamable plugin, calling the handler with each complete output block.
+    /// Blocks are delimited by `~~~` lines. Only the latest block is kept.
+    nonisolated func executeStream(
+        plugin: Plugin,
+        onOutput: @escaping @Sendable (String) -> Void
+    ) async throws {
+        let env = await buildPluginEnvironment(plugin: plugin, reason: "StreamStart")
+        let path = FilePath(plugin.path.path())
+        let maxBlockSize = 65536  // 64KB per block
+
+        _ = try await run(
+            .path(path),
+            arguments: [],
+            environment: env,
+            platformOptions: ScriptRunner.platformOptions,
+            error: .discarded
+        ) { (execution: Execution, output: AsyncBufferSequence) in
+            var currentBlock = ""
+
+            for try await chunk in output {
+                let str = chunk.withUnsafeBytes { bytes in
+                    String(bytes: bytes, encoding: .utf8) ?? ""
+                }
+
+                for char in str {
+                    currentBlock.append(char)
+
+                    // Check for ~~~ separator
+                    if currentBlock.hasSuffix("\n~~~\n") || currentBlock.hasSuffix("\n~~~") {
+                        // Remove the separator and emit the block
+                        let blockEnd = currentBlock.index(
+                            currentBlock.endIndex,
+                            offsetBy: currentBlock.hasSuffix("\n~~~\n") ? -5 : -4
+                        )
+                        let block = String(currentBlock[currentBlock.startIndex..<blockEnd])
+                        if !block.isEmpty {
+                            onOutput(block)
+                        }
+                        currentBlock = ""
+                    }
+
+                    // Enforce max block size
+                    if currentBlock.count > maxBlockSize {
+                        currentBlock = ""
+                    }
+                }
+            }
+
+            // Emit any remaining content
+            if !currentBlock.isEmpty {
+                onOutput(currentBlock)
+            }
+        }
+    }
+
     // MARK: - Environment
 
     private func buildPluginEnvironment(plugin: Plugin, reason: String) -> Environment {

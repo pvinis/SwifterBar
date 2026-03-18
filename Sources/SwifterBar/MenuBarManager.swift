@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import ServiceManagement
 
 // MARK: - MenuBarManager
 
@@ -13,6 +14,10 @@ final class MenuBarManager {
         self.pluginManager = pluginManager
         self.scriptRunner = scriptRunner
         imageCache.countLimit = 100
+    }
+
+    private var isDarkMode: Bool {
+        NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
     }
 
     var activePluginIds: Set<String> {
@@ -106,15 +111,47 @@ final class MenuBarManager {
 
         let bodyItems = plugin.lastOutput.filter { !$0.isHeader }
 
+        // Track menu stack for nested submenus
+        // menuStack[0] = root menu, menuStack[1] = first submenu, etc.
+        var menuStack: [NSMenu] = [menu]
+
         for item in bodyItems {
             if item.isSeparator {
-                menu.addItem(.separator())
+                menuStack.last?.addItem(.separator())
                 continue
             }
 
             let menuItem = NSMenuItem(title: item.text, action: nil, keyEquivalent: "")
             applyParams(item.params, to: menuItem)
-            menu.addItem(menuItem)
+
+            if item.depth == 0 {
+                // Top-level item — reset stack to root
+                menuStack = [menu]
+                menu.addItem(menuItem)
+            } else {
+                // Ensure we have a parent at depth-1
+                // If depth > current stack size, attach submenu to last item at each level
+                while menuStack.count <= item.depth {
+                    // Get the last item in the current deepest menu to attach a submenu to
+                    guard let parentMenu = menuStack.last,
+                          let lastItem = parentMenu.items.last(where: { !$0.isSeparatorItem }) else {
+                        // Can't nest deeper without a parent item — just add to current menu
+                        menuStack.last?.addItem(menuItem)
+                        break
+                    }
+                    if lastItem.submenu == nil {
+                        lastItem.submenu = NSMenu()
+                    }
+                    menuStack.append(lastItem.submenu!)
+                }
+
+                // Trim stack if we went back up levels
+                while menuStack.count > item.depth + 1 {
+                    menuStack.removeLast()
+                }
+
+                menuStack.last?.addItem(menuItem)
+            }
         }
 
         // Always add a separator and context items at the bottom
@@ -142,9 +179,7 @@ final class MenuBarManager {
 
         menu.addItem(.separator())
 
-        let quit = NSMenuItem(title: "Quit SwifterBar", action: #selector(quitClicked), keyEquivalent: "q")
-        quit.target = self
-        menu.addItem(quit)
+        appendSharedMenuItems(to: menu)
 
         return menu
     }
@@ -162,11 +197,31 @@ final class MenuBarManager {
 
         menu.addItem(.separator())
 
+        appendSharedMenuItems(to: menu)
+
+        return menu
+    }
+
+    /// Append launch-at-login toggle and quit to a menu.
+    private func appendSharedMenuItems(to menu: NSMenu) {
+        let launchAtLogin = NSMenuItem(
+            title: "Launch at Login",
+            action: #selector(toggleLaunchAtLogin(_:)),
+            keyEquivalent: ""
+        )
+        launchAtLogin.target = self
+        launchAtLogin.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        menu.addItem(launchAtLogin)
+
+        let settings = NSMenuItem(title: "Settings...", action: #selector(openSettingsClicked), keyEquivalent: ",")
+        settings.target = self
+        menu.addItem(settings)
+
+        menu.addItem(.separator())
+
         let quit = NSMenuItem(title: "Quit SwifterBar", action: #selector(quitClicked), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
-
-        return menu
     }
 
     // MARK: - Apply Styling
@@ -190,8 +245,15 @@ final class MenuBarManager {
     }
 
     private func applyParams(_ params: MenuItemParams, to menuItem: NSMenuItem) {
-        // Color
-        if let colorStr = params.color {
+        // Color — pick dark variant if available and in dark mode
+        let colorStr: String? = {
+            if let dark = params.colorDark, isDarkMode {
+                return dark
+            }
+            return params.color
+        }()
+
+        if let colorStr {
             if let color = NSColor(cssHex: colorStr) {
                 let attrStr = NSAttributedString(
                     string: menuItem.title,
@@ -328,6 +390,23 @@ final class MenuBarManager {
 
     @objc private func refreshAllClicked() {
         pluginManager.refreshAll()
+    }
+
+    @objc private func openSettingsClicked() {
+        openSettings()
+    }
+
+    @objc private func toggleLaunchAtLogin(_ sender: NSMenuItem) {
+        let service = SMAppService.mainApp
+        do {
+            if service.status == .enabled {
+                try service.unregister()
+            } else {
+                try service.register()
+            }
+        } catch {
+            // Silently fail — user can toggle in System Settings
+        }
     }
 
     @objc private func quitClicked() {

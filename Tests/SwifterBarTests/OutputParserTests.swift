@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import SwifterBar
 
@@ -148,6 +149,77 @@ struct OutputParserTests {
         let item = OutputParser.parseLine("CPU: 50% | color=red")
         #expect(item.text == "CPU: 50%")
         #expect(item.params.color == "red")
+    }
+}
+
+@Suite("Nested Submenus")
+struct NestedSubmenuTests {
+
+    @Test func parsesSubmenuDepth() {
+        let output = "Header\n---\nTop item\n--Sub item\n----Sub-sub item"
+        let items = OutputParser.parse(output)
+
+        #expect(items[0].isHeader == true)
+        #expect(items[1].text == "Top item")
+        #expect(items[1].depth == 0)
+        #expect(items[2].text == "Sub item")
+        #expect(items[2].depth == 1)
+        #expect(items[3].text == "Sub-sub item")
+        #expect(items[3].depth == 2)
+    }
+
+    @Test func submenuDepthOnlyInBody() {
+        let output = "--Not a submenu\n---\n--This is a submenu"
+        let items = OutputParser.parse(output)
+
+        // In header, -- is literal text
+        #expect(items[0].text == "--Not a submenu")
+        #expect(items[0].depth == 0)
+        // In body, -- indicates submenu
+        #expect(items[1].text == "This is a submenu")
+        #expect(items[1].depth == 1)
+    }
+
+    @Test func submenuWithParams() {
+        let output = "Header\n---\n--Sub item | color=#ff0000"
+        let items = OutputParser.parse(output)
+
+        #expect(items[1].text == "Sub item")
+        #expect(items[1].depth == 1)
+        #expect(items[1].params.color == "#ff0000")
+    }
+}
+
+@Suite("Metadata Parsing")
+struct MetadataTests {
+
+    @Test func parsesMetadataFromContent() {
+        // Create a temp file with metadata
+        let content = """
+        #!/bin/bash
+        # <swiftbar.title>My Plugin</swiftbar.title>
+        # <swiftbar.author>Test Author</swiftbar.author>
+        # <swiftbar.type>streamable</swiftbar.type>
+        # <swiftbar.alwaysVisible>true</swiftbar.alwaysVisible>
+        echo "hello"
+        """
+        let tempURL = FileManager.default.temporaryDirectory.appending(path: "test_meta_\(UUID()).sh")
+        try! content.write(to: tempURL, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+
+        let meta = PluginMetadata.parse(from: tempURL)
+        #expect(meta.title == "My Plugin")
+        #expect(meta.author == "Test Author")
+        #expect(meta.type == "streamable")
+        #expect(meta.isStreamable == true)
+        #expect(meta.alwaysVisible == true)
+    }
+
+    @Test func returnsEmptyMetadataForNonexistentFile() {
+        let url = URL(filePath: "/nonexistent/path/plugin.sh")
+        let meta = PluginMetadata.parse(from: url)
+        #expect(meta.title == nil)
+        #expect(meta.isStreamable == false)
     }
 }
 

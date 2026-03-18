@@ -80,13 +80,13 @@ final class PluginManager {
     private func startPlugin(id: String) {
         guard let plugin = plugins[id] else { return }
 
-        // Initial run
-        refreshPlugin(id: id, reason: "FirstLaunch")
+        switch plugin.kind {
+        case .executable(let interval):
+            // Initial run
+            refreshPlugin(id: id, reason: "FirstLaunch")
 
-        // Schedule recurring refresh for executable plugins
-        if case .executable(let interval) = plugin.kind {
+            // Schedule recurring refresh
             let task = Task {
-                // Stagger start based on plugin index
                 let index = Array(plugins.keys.sorted()).firstIndex(of: id) ?? 0
                 let stagger = Duration.seconds(Double(index) * 0.5)
                 try? await Task.sleep(for: stagger)
@@ -95,6 +95,37 @@ final class PluginManager {
                     try? await Task.sleep(for: interval)
                     guard !Task.isCancelled else { break }
                     refreshPlugin(id: id, reason: "Schedule")
+                }
+            }
+            refreshTasks[id] = task
+
+        case .streamable:
+            // Start long-running process
+            let task = Task {
+                guard var p = plugins[id] else { return }
+                p.state = .running
+                p.isRunning = true
+                plugins[id] = p
+
+                do {
+                    try await scriptRunner.executeStream(plugin: plugin) { [weak self] output in
+                        Task { @MainActor [weak self] in
+                            let items = OutputParser.parse(output)
+                            if var p = self?.plugins[id] {
+                                p.lastOutput = items
+                                p.state = .running
+                                p.error = nil
+                                self?.plugins[id] = p
+                            }
+                        }
+                    }
+                } catch {
+                    if var p = plugins[id] {
+                        p.state = .error
+                        p.error = error as? PluginError ?? .spawnFailed(error.localizedDescription)
+                        p.isRunning = false
+                        plugins[id] = p
+                    }
                 }
             }
             refreshTasks[id] = task
@@ -132,12 +163,18 @@ final class PluginManager {
 
             // Only add new plugins, don't reset existing ones
             if plugins[id] == nil {
-                let plugin = Plugin(
+                let metadata = PluginMetadata.parse(from: fileURL)
+                let kind: PluginKind = metadata.isStreamable
+                    ? .streamable
+                    : .executable(interval: parsed.interval)
+
+                var plugin = Plugin(
                     id: id,
-                    name: parsed.name,
+                    name: metadata.title ?? parsed.name,
                     path: fileURL,
-                    kind: .executable(interval: parsed.interval)
+                    kind: kind
                 )
+                plugin.metadata = metadata
                 plugins[id] = plugin
             }
         }

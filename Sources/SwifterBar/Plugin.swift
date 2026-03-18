@@ -7,10 +7,62 @@ nonisolated struct Plugin: Identifiable, Sendable {
     let name: String
     let path: URL
     let kind: PluginKind
+    var metadata: PluginMetadata = PluginMetadata()
     var state: PluginState = .idle
     var lastOutput: [ParsedMenuItem] = []
     var error: PluginError?
     var isRunning: Bool = false
+}
+
+// MARK: - PluginMetadata
+
+nonisolated struct PluginMetadata: Sendable {
+    var title: String?
+    var author: String?
+    var authorGithub: String?
+    var desc: String?
+    var type: String?           // "streamable"
+    var schedule: String?       // cron expression (future use)
+    var hideRunInTerminal: Bool = false
+    var hideLastUpdated: Bool = false
+    var hideDisablePlugin: Bool = false
+    var alwaysVisible: Bool = false
+
+    var isStreamable: Bool { type?.lowercased() == "streamable" }
+
+    /// Parse metadata from the first 8KB of a script file.
+    static func parse(from url: URL) -> PluginMetadata {
+        let maxBytes = 8192
+        guard let handle = try? FileHandle(forReadingFrom: url),
+              let data = try? handle.read(upToCount: maxBytes),
+              let content = String(data: data, encoding: .utf8) else {
+            return PluginMetadata()
+        }
+
+        var meta = PluginMetadata()
+        let pattern = /<swiftbar\.(\w+(?:\.\w+)*)>(.*?)<\/swiftbar\.\1>/
+
+        for match in content.matches(of: pattern) {
+            let key = String(match.1)
+            let value = String(match.2).trimmingCharacters(in: .whitespaces)
+
+            switch key {
+            case "title": meta.title = value
+            case "author": meta.author = value
+            case "author.github": meta.authorGithub = value
+            case "desc": meta.desc = value
+            case "type": meta.type = value
+            case "schedule": meta.schedule = value
+            case "hideRunInTerminal": meta.hideRunInTerminal = value.lowercased() == "true"
+            case "hideLastUpdated": meta.hideLastUpdated = value.lowercased() == "true"
+            case "hideDisablePlugin": meta.hideDisablePlugin = value.lowercased() == "true"
+            case "alwaysVisible": meta.alwaysVisible = value.lowercased() == "true"
+            default: break
+            }
+        }
+
+        return meta
+    }
 }
 
 // MARK: - PluginKind
@@ -46,6 +98,7 @@ nonisolated struct ParsedMenuItem: Equatable, Sendable {
     var params: MenuItemParams
     var isHeader: Bool = false
     var isSeparator: Bool = false
+    var depth: Int = 0  // 0 = top level, 1 = submenu, 2 = sub-submenu, etc.
 }
 
 // MARK: - MenuItemParams

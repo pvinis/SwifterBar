@@ -8,10 +8,10 @@ struct SwifterBarApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        // Menu-bar-only app — no windows, no dock icon.
-        // Settings scene deferred to Phase 2.
         Settings {
-            EmptyView()
+            if let pm = appDelegate.pluginManager {
+                SettingsView(pluginManager: pm)
+            }
         }
     }
 }
@@ -19,7 +19,7 @@ struct SwifterBarApp: App {
 // MARK: - AppDelegate
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var pluginManager: PluginManager!
+    var pluginManager: PluginManager!
     private var menuBarManager: MenuBarManager!
     private var observationTask: Task<Void, Never>?
 
@@ -46,24 +46,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pluginManager.stopAll()
     }
 
+    /// Called when Settings window closes — hide dock icon again
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        NSApp.setActivationPolicy(.accessory)
+        return false
+    }
+
     private func startObserving() {
         observationTask = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { break }
 
-                // Use withObservationTracking to watch for plugin state changes
                 let snapshot = withObservationTracking {
                     self.pluginManager.plugins
                 } onChange: {
                     // Will be called when plugins dictionary changes
                 }
 
-                // Update menu bar items for all plugins
-                for (id, plugin) in snapshot {
+                for (_, plugin) in snapshot {
                     self.menuBarManager.updateStatusItem(for: plugin)
                 }
 
-                // Remove status items for plugins that no longer exist
                 let activeIds = Set(snapshot.keys)
                 for id in self.menuBarManager.activePluginIds {
                     if !activeIds.contains(id) {
@@ -71,9 +74,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 }
 
-                // Wait for the next change
                 try? await Task.sleep(for: .milliseconds(100))
             }
         }
+    }
+}
+
+// MARK: - Open Settings Helper
+
+/// Opens the Settings window from AppKit context (menu bar actions).
+func openSettings() {
+    // Show dock icon temporarily so the window is accessible
+    NSApp.setActivationPolicy(.regular)
+    NSApp.activate(ignoringOtherApps: true)
+
+    // Open settings via the standard action
+    if #available(macOS 14, *) {
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+    } else {
+        NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
     }
 }
