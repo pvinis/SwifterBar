@@ -47,14 +47,14 @@ Use a minimal Xcode project that references the existing SPM package as a local 
 
 Create the Xcode project and produce a working `.app`.
 
-- [ ] Create `SwifterBar.xcodeproj` with a macOS App target that depends on the local SPM package
-- [ ] Add `Info.plist` with: `LSUIElement=true`, `CFBundleIdentifier=com.pvinis.swifterbar`, version strings, `NSHumanReadableCopyright`
-- [ ] Add app icon (create a simple SF Symbol-based icon or placeholder `.icns`)
-- [ ] Add entitlements file (hardened runtime for notarization)
-- [ ] Verify `xcodebuild -scheme SwifterBar -configuration Release build` produces a working `.app`
+- [x] Create `SwifterBar.xcodeproj` with a macOS App target that depends on the local SPM package
+- [x] Add `Info.plist` with: `LSUIElement=true`, `CFBundleIdentifier=com.pvinis.swifterbar`, version strings, `NSHumanReadableCopyright`
+- [x] Add app icon (create a simple SF Symbol-based icon or placeholder `.icns`)
+- [x] Add entitlements file (hardened runtime for notarization)
+- [x] Verify `xcodebuild -scheme SwifterBar -configuration Release build` produces a working `.app`
 - [ ] Verify the `.app` launches correctly, shows in menu bar, runs plugins, Settings works
-- [ ] Add `Makefile` or script: `make build`, `make run`, `make archive`
-- [ ] Keep `swift build` and `swift test` working for development (no Xcode required for dev/test)
+- [x] Add `Makefile` or script: `make build`, `make run`, `make archive`
+- [x] Keep `swift build` and `swift test` working for development (no Xcode required for dev/test)
 
 ### Phase 2: Sparkle Auto-Updates
 
@@ -73,11 +73,11 @@ Add Sparkle 2 for self-updating.
 Automated build-sign-notarize-release pipeline.
 
 - [ ] Set up Developer ID Application certificate (requires Apple Developer account)
-- [ ] Create GitHub Actions workflow: build → sign → create DMG → notarize → staple → upload to release
+- [x] Create GitHub Actions workflow: build → sign → create DMG → notarize → staple → upload to release
 - [ ] Store secrets: `DEVELOPER_ID_CERTIFICATE` (base64), cert password, Apple ID, app-specific password, team ID, Sparkle EdDSA private key
-- [ ] Use `create-dmg` or `hdiutil` to create a DMG with Applications symlink
+- [x] Use `create-dmg` or `hdiutil` to create a DMG with Applications symlink
 - [ ] Auto-generate Sparkle appcast on release
-- [ ] Tag-based releases: push `v1.0.0` tag → CI builds and publishes
+- [x] Tag-based releases: push `v1.0.0` tag → CI builds and publishes
 
 ### Phase 4: Homebrew Cask
 
