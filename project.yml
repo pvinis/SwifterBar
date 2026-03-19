@@ -1,0 +1,53 @@
+name: SwifterBar
+options:
+  bundleIdPrefix: com.pvinis
+  deploymentTarget:
+    macOS: "26.0"
+  xcodeVersion: "26"
+  generateEmptyDirectories: true
+
+packages:
+  swift-subprocess:
+    url: https://github.com/swiftlang/swift-subprocess.git
+    from: "0.1.0"
+
+targets:
+  SwifterBar:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/SwifterBar
+    resources:
+      - path: SupportingFiles/Assets.xcassets
+    dependencies:
+      - package: swift-subprocess
+        product: Subprocess
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.pvinis.swifterbar
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        INFOPLIST_FILE: SupportingFiles/Info.plist
+        CODE_SIGN_ENTITLEMENTS: SupportingFiles/SwifterBar.entitlements
+        SWIFT_VERSION: "6.0"
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
+        CODE_SIGN_IDENTITY: "-"
+        ENABLE_HARDENED_RUNTIME: true
+        GENERATE_INFOPLIST_FILE: false
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS:
+          - "$(inherited)"
+        OTHER_SWIFT_FLAGS:
+          - "-enable-upcoming-feature"
+          - "DefaultIsolation=MainActor"
+
+  SwifterBarTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests/SwifterBarTests
+    dependencies:
+      - target: SwifterBar
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        MACOSX_DEPLOYMENT_TARGET: "26.0"

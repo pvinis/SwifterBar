@@ -53,24 +53,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func startObserving() {
-        observationTask = Task { [weak self] in
+        let pm = pluginManager!
+        let mbm = menuBarManager!
+        observationTask = Task { @MainActor in
             while !Task.isCancelled {
-                guard let self else { break }
-
                 let snapshot = withObservationTracking {
-                    self.pluginManager.plugins
+                    pm.plugins
                 } onChange: {
                     // Will be called when plugins dictionary changes
                 }
 
                 for (_, plugin) in snapshot {
-                    self.menuBarManager.updateStatusItem(for: plugin)
+                    mbm.updateStatusItem(for: plugin)
                 }
 
                 let activeIds = Set(snapshot.keys)
-                for id in self.menuBarManager.activePluginIds {
+                for id in mbm.activePluginIds {
                     if !activeIds.contains(id) {
-                        self.menuBarManager.removeStatusItem(for: id)
+                        mbm.removeStatusItem(for: id)
                     }
                 }
 

@@ -4,7 +4,7 @@ import ServiceManagement
 
 // MARK: - MenuBarManager
 
-final class MenuBarManager {
+final class MenuBarManager: @unchecked Sendable {
     private var statusItems: [String: NSStatusItem] = [:]
     private let pluginManager: PluginManager
     private let scriptRunner: ScriptRunner
@@ -366,10 +366,12 @@ final class MenuBarManager {
 
         // Execute bash command
         if let bash = params.bash {
-            Task {
-                try? await scriptRunner.executeBashAction(
+            let runner = scriptRunner
+            let bashParams = params.bashParams
+            Task.detached {
+                try? await runner.executeBashAction(
                     executable: bash,
-                    params: params.bashParams
+                    params: bashParams
                 )
             }
         }

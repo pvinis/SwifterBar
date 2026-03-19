@@ -3,7 +3,7 @@ import Foundation
 // MARK: - PluginManager
 
 @Observable
-final class PluginManager {
+final class PluginManager: @unchecked Sendable {
     var plugins: [String: Plugin] = [:]
     var pluginOrder: [String] = []  // persisted ordering of plugin IDs
     var isPaused: Bool = false
@@ -140,24 +140,36 @@ final class PluginManager {
 
         case .streamable:
             // Start long-running process
+            let runner = scriptRunner
             let task = Task {
                 guard var p = plugins[id] else { return }
                 p.state = .running
                 p.isRunning = true
                 plugins[id] = p
 
-                do {
-                    try await scriptRunner.executeStream(plugin: plugin) { [weak self] output in
-                        Task { @MainActor [weak self] in
-                            let items = OutputParser.parse(output)
-                            if var p = self?.plugins[id] {
-                                p.lastOutput = items
-                                p.state = .running
-                                p.error = nil
-                                self?.plugins[id] = p
-                            }
-                        }
+                // Use AsyncStream to bridge from @Sendable callback to MainActor
+                let (stream, continuation) = AsyncStream<String>.makeStream()
+
+                let streamTask = Task.detached {
+                    try await runner.executeStream(plugin: plugin) { output in
+                        continuation.yield(output)
                     }
+                    continuation.finish()
+                }
+
+                for await output in stream {
+                    let items = OutputParser.parse(output)
+                    if var p = plugins[id] {
+                        p.lastOutput = items
+                        p.state = .running
+                        p.error = nil
+                        plugins[id] = p
+                    }
+                }
+
+                // Wait for the stream task to complete (or handle its error)
+                do {
+                    try await streamTask.value
                 } catch {
                     if var p = plugins[id] {
                         p.state = .error
